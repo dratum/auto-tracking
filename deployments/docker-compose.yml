@@ -1,0 +1,49 @@
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: autotrack-timescaledb
+    environment:
+      POSTGRES_USER: autotrack
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: autotrack
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autotrack -d autotrack"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - autotrack
+
+  mongodb:
+    image: mongo:7
+    container_name: autotrack-mongodb
+    environment:
+      MONGO_INITDB_DATABASE: autotrack
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok", "--quiet"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - autotrack
+
+networks:
+  autotrack:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.0.0/24
+
+volumes:
+  timescaledb_data:
+  mongodb_data:
