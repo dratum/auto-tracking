@@ -121,10 +121,20 @@ func (r *TripRepo) SetAvgSpeed(ctx context.Context, tripID string, avgSpeed floa
 	return nil
 }
 
-func (r *TripRepo) List(ctx context.Context, vehicleID string, limit, offset int64) ([]model.Trip, error) {
-	filter := bson.M{}
+func (r *TripRepo) List(ctx context.Context, vehicleID string, from, to *time.Time, limit, offset int64) ([]model.Trip, error) {
+	filter := bson.M{"status": model.TripStatusCompleted}
 	if vehicleID != "" {
 		filter["vehicle_id"] = vehicleID
+	}
+	if from != nil || to != nil {
+		timeFilter := bson.M{}
+		if from != nil {
+			timeFilter["$gte"] = *from
+		}
+		if to != nil {
+			timeFilter["$lte"] = *to
+		}
+		filter["start_time"] = timeFilter
 	}
 
 	opts := options.Find().
@@ -144,4 +154,69 @@ func (r *TripRepo) List(ctx context.Context, vehicleID string, limit, offset int
 	}
 
 	return trips, nil
+}
+
+func (r *TripRepo) Count(ctx context.Context, vehicleID string, from, to *time.Time) (int64, error) {
+	filter := bson.M{"status": model.TripStatusCompleted}
+	if vehicleID != "" {
+		filter["vehicle_id"] = vehicleID
+	}
+	if from != nil || to != nil {
+		timeFilter := bson.M{}
+		if from != nil {
+			timeFilter["$gte"] = *from
+		}
+		if to != nil {
+			timeFilter["$lte"] = *to
+		}
+		filter["start_time"] = timeFilter
+	}
+
+	count, err := r.col.CountDocuments(ctx, filter)
+	if err != nil {
+		return 0, fmt.Errorf("trip_repo count: %w", err)
+	}
+
+	return count, nil
+}
+
+type TripStats struct {
+	TotalDistanceKM float64 `bson:"total_distance_km"`
+	TotalTrips      int64   `bson:"total_trips"`
+	TotalDurationMs int64   `bson:"total_duration_ms"`
+}
+
+func (r *TripRepo) AggregateStats(ctx context.Context, from, to time.Time) (*TripStats, error) {
+	pipeline := bson.A{
+		bson.M{"$match": bson.M{
+			"status":     model.TripStatusCompleted,
+			"start_time": bson.M{"$gte": from, "$lte": to},
+			"end_time":   bson.M{"$ne": nil},
+		}},
+		bson.M{"$group": bson.M{
+			"_id":               nil,
+			"total_distance_km": bson.M{"$sum": "$distance_km"},
+			"total_trips":       bson.M{"$sum": 1},
+			"total_duration_ms": bson.M{"$sum": bson.M{
+				"$subtract": bson.A{"$end_time", "$start_time"},
+			}},
+		}},
+	}
+
+	cursor, err := r.col.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, fmt.Errorf("trip_repo aggregate stats: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var results []TripStats
+	if err := cursor.All(ctx, &results); err != nil {
+		return nil, fmt.Errorf("trip_repo aggregate stats decode: %w", err)
+	}
+
+	if len(results) == 0 {
+		return &TripStats{}, nil
+	}
+
+	return &results[0], nil
 }

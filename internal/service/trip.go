@@ -89,3 +89,38 @@ func (s *TripService) EndTrip(ctx context.Context, vehicleID string) error {
 
 	return nil
 }
+
+// ListTrips returns paginated completed trips with optional date filtering.
+func (s *TripService) ListTrips(ctx context.Context, from, to *time.Time, limit, offset int64) ([]model.Trip, int64, error) {
+	trips, err := s.tripRepo.List(ctx, "", from, to, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("trip service list: %w", err)
+	}
+
+	total, err := s.tripRepo.Count(ctx, "", from, to)
+	if err != nil {
+		return nil, 0, fmt.Errorf("trip service count: %w", err)
+	}
+
+	return trips, total, nil
+}
+
+// GetTrip returns a single trip by ID.
+func (s *TripService) GetTrip(ctx context.Context, id string) (*model.Trip, error) {
+	trip, err := s.tripRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("trip service get: %w", err)
+	}
+
+	return trip, nil
+}
+
+// GetTripPoints returns all GPS points for a trip.
+func (s *TripService) GetTripPoints(ctx context.Context, tripID string) ([]model.GPSPoint, error) {
+	points, err := s.gpsRepo.FindByTripID(ctx, tripID)
+	if err != nil {
+		return nil, fmt.Errorf("trip service get points: %w", err)
+	}
+
+	return points, nil
+}

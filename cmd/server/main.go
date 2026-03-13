@@ -11,14 +11,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"golang.org/x/crypto/bcrypt"
 
 	"auto-tracking/internal/api"
 	"auto-tracking/internal/api/handler"
 	"auto-tracking/internal/config"
+	"auto-tracking/internal/domain/model"
 	"auto-tracking/internal/service"
+
 	mongorepo "auto-tracking/internal/repository/mongo"
 	"auto-tracking/internal/repository/timescale"
 )
@@ -80,15 +84,32 @@ func run() error {
 	// Build dependency graph
 	gpsRepo := timescale.NewGPSRepo(pgDB)
 	tripRepo := mongorepo.NewTripRepo(mongoDB)
+	userRepo := mongorepo.NewUserRepo(mongoDB)
 
 	trackingService := service.NewTrackingService(gpsRepo, tripRepo)
 	tripService := service.NewTripService(tripRepo, gpsRepo)
+	statsService := service.NewStatsService(tripRepo)
 
 	const defaultVehicleID = "default"
 	deviceHandler := handler.NewDeviceHandler(trackingService, tripService, defaultVehicleID)
+	authHandler := handler.NewAuthHandler(userRepo, cfg.Auth.JWTSecret, cfg.Auth.JWTExpiry)
+	tripHandler := handler.NewTripHandler(tripService)
+	statsHandler := handler.NewStatsHandler(statsService)
+
+	// Seed default admin user
+	if err := seedAdminUser(ctx, userRepo, cfg.Admin); err != nil {
+		return fmt.Errorf("seed admin: %w", err)
+	}
 
 	// HTTP server
-	router := api.NewRouter(deviceHandler, cfg.Auth.APIKey)
+	router := api.NewRouter(
+		deviceHandler,
+		authHandler,
+		tripHandler,
+		statsHandler,
+		cfg.Auth.APIKey,
+		cfg.Auth.JWTSecret,
+	)
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	srv := &http.Server{
@@ -126,5 +147,35 @@ func run() error {
 	}
 
 	log.Println("server stopped gracefully")
+	return nil
+}
+
+func seedAdminUser(ctx context.Context, userRepo *mongorepo.UserRepo, admin config.AdminConfig) error {
+	existing, err := userRepo.GetByUsername(ctx, admin.Username)
+	if err != nil {
+		return fmt.Errorf("check admin user: %w", err)
+	}
+	if existing != nil {
+		log.Printf("admin user %q already exists, skipping seed", admin.Username)
+		return nil
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(admin.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash admin password: %w", err)
+	}
+
+	user := model.User{
+		ID:           uuid.New().String(),
+		Username:     admin.Username,
+		PasswordHash: string(hash),
+		CreatedAt:    time.Now().UTC(),
+	}
+
+	if err := userRepo.Create(ctx, user); err != nil {
+		return fmt.Errorf("create admin user: %w", err)
+	}
+
+	log.Printf("admin user %q created", admin.Username)
 	return nil
 }

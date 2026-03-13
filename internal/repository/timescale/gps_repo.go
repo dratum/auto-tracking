@@ -65,10 +65,10 @@ func (r *GPSRepo) FindByTripID(ctx context.Context, tripID string) ([]model.GPSP
 			, heading
 			, satellites
 		from gps_points
-		where trip_id = @trip_id
+		where trip_id = $1
 		order by time asc`
 
-	rows, err := r.db.QueryContext(ctx, query, sql.Named("trip_id", tripID))
+	rows, err := r.db.QueryContext(ctx, query, tripID)
 	if err != nil {
 		return nil, fmt.Errorf("gps_repo find by trip: %w", err)
 	}
@@ -98,12 +98,12 @@ func (r *GPSRepo) LastByTripID(ctx context.Context, tripID string) (*model.GPSPo
 			, heading
 			, satellites
 		from gps_points
-		where trip_id = @trip_id
+		where trip_id = $1
 		order by time desc
 		limit 1`
 
 	var p model.GPSPoint
-	err := r.db.QueryRowContext(ctx, query, sql.Named("trip_id", tripID)).Scan(
+	err := r.db.QueryRowContext(ctx, query, tripID).Scan(
 		&p.Time, &p.TripID, &p.Lat, &p.Lon, &p.Speed, &p.Heading, &p.Satellites,
 	)
 	if err == sql.ErrNoRows {
