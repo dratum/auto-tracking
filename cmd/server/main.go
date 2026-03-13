@@ -39,24 +39,24 @@ func run() error {
 	// Connect to TimescaleDB
 	pgDB, err := sql.Open("postgres", cfg.Timescale.DSN())
 	if err != nil {
-		return fmt.Errorf("open timescaledb: %w", err)
+		return fmt.Errorf("open TimescaleDB: %w", err)
 	}
 	defer pgDB.Close()
 
 	if err := pgDB.PingContext(ctx); err != nil {
-		return fmt.Errorf("ping timescaledb: %w", err)
+		return fmt.Errorf("ping TimescaleDB: %w", err)
 	}
 	log.Println("connected to TimescaleDB")
 
 	if err := timescale.InitSchema(ctx, pgDB); err != nil {
-		return fmt.Errorf("init timescaledb: %w", err)
+		return fmt.Errorf("init TimescaleDB: %w", err)
 	}
 	log.Println("TimescaleDB schema initialized")
 
 	// Connect to MongoDB
 	mongoClient, err := mongo.Connect(options.Client().ApplyURI(cfg.Mongo.URI))
 	if err != nil {
-		return fmt.Errorf("connect mongodb: %w", err)
+		return fmt.Errorf("connect MongoDB: %w", err)
 	}
 	defer func() {
 		disconnectCtx, c := context.WithTimeout(context.Background(), 5*time.Second)
@@ -65,7 +65,7 @@ func run() error {
 	}()
 
 	if err := mongoClient.Ping(ctx, nil); err != nil {
-		return fmt.Errorf("ping mongodb: %w", err)
+		return fmt.Errorf("ping MongoDB: %w", err)
 	}
 	log.Println("connected to MongoDB")
 
