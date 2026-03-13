@@ -18,7 +18,7 @@ import (
 	"auto-tracking/internal/api"
 	"auto-tracking/internal/api/handler"
 	"auto-tracking/internal/config"
-	"auto-tracking/internal/domain/service"
+	"auto-tracking/internal/service"
 	mongorepo "auto-tracking/internal/repository/mongo"
 	"auto-tracking/internal/repository/timescale"
 )

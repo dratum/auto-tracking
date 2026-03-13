@@ -1,22 +1,31 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
 
 	"auto-tracking/internal/domain/model"
-	"auto-tracking/internal/domain/service"
 )
 
+type trackingService interface {
+	SavePoint(ctx context.Context, point model.GPSPoint) error
+}
+
+type tripService interface {
+	EndTrip(ctx context.Context, vehicleID string) error
+	StartTrip(ctx context.Context, vehicleID string) (string, error)
+}
+
 type DeviceHandler struct {
-	tracking  *service.TrackingService
-	trip      *service.TripService
+	tracking  trackingService
+	trip      tripService
 	vehicleID string
 }
 
 func NewDeviceHandler(
-	tracking *service.TrackingService, trip *service.TripService, vehicleID string,
+	tracking trackingService, trip tripService, vehicleID string,
 ) *DeviceHandler {
 	return &DeviceHandler{
 		tracking:  tracking,
