@@ -1,0 +1,17 @@
+# Ignore everything
+*
+
+# Backend
+!go.mod
+!go.sum
+!cmd/
+!internal/
+
+# Frontend
+!web/package.json
+!web/package-lock.json
+!web/src/
+!web/static/
+!web/svelte.config.js
+!web/vite.config.ts
+!web/tsconfig.json

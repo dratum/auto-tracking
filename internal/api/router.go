@@ -1,6 +1,7 @@
 package api
 
 import (
+	"io/fs"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -16,6 +17,7 @@ func NewRouter(
 	tripHandler *handler.TripHandler,
 	statsHandler *handler.StatsHandler,
 	apiKey, jwtSecret string,
+	webFS fs.FS,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -51,6 +53,21 @@ func NewRouter(
 			r.Get("/stats", statsHandler.GetStats)
 		})
 	})
+
+	// SPA static files
+	if webFS != nil {
+		fileServer := http.FileServerFS(webFS)
+		r.Get("/*", func(w http.ResponseWriter, req *http.Request) {
+			// Try to serve the file; if not found, serve index.html (SPA fallback)
+			f, err := webFS.Open(req.URL.Path[1:]) // strip leading /
+			if err != nil {
+				req.URL.Path = "/"
+			} else {
+				f.Close()
+			}
+			fileServer.ServeHTTP(w, req)
+		})
+	}
 
 	return r
 }

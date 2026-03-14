@@ -29,10 +29,30 @@ services:
     volumes:
       - mongodb_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok", "--quiet"]
-      interval: 5s
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok", "--quiet", "--norc"]
+      interval: 30s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - autotrack
+
+  app:
+    image: autotrack-app:latest
+    container_name: autotrack-app
+    env_file:
+      - ../.env
+    environment:
+      TIMESCALE_HOST: timescaledb
+      MONGO_URI: mongodb://mongodb:27017
+    ports:
+      - "8080:8080"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - autotrack

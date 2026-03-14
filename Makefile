@@ -1,8 +1,8 @@
-.PHONY: up down run build logs ps web-dev web-build web-install help
+.PHONY: up down run build logs ps web-dev web-build web-install docker-build help
 
 COMPOSE_FILE := deployments/docker-compose.yml
 
-## Docker Compose — инфраструктура (TimescaleDB + MongoDB)
+## Docker Compose — инфраструктура (TimescaleDB + MongoDB + App)
 
 up:                ## Поднять контейнеры
 	docker compose -f $(COMPOSE_FILE) up -d
@@ -15,6 +15,11 @@ logs:              ## Логи контейнеров (follow)
 
 ps:                ## Статус контейнеров
 	docker compose -f $(COMPOSE_FILE) ps
+
+## Docker
+
+docker-build:      ## Собрать Docker-образ приложения
+	DOCKER_BUILDKIT=0 docker build -t autotrack-app:latest -f Dockerfile .
 
 ## Локальный запуск сервера
 

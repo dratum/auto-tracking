@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -89,7 +90,7 @@ func run() error {
 	tripService := service.NewTripService(tripRepo, gpsRepo)
 	statsService := service.NewStatsService(tripRepo)
 
-	const defaultVehicleID = "default"
+	const defaultVehicleID = "1"
 	deviceHandler := handler.NewDeviceHandler(trackingService, tripService, defaultVehicleID)
 	authHandler := handler.NewAuthHandler(userRepo, cfg.Auth.JWTSecret, cfg.Auth.JWTExpiry)
 	tripHandler := handler.NewTripHandler(tripService)
@@ -100,6 +101,13 @@ func run() error {
 		return fmt.Errorf("seed admin: %w", err)
 	}
 
+	// Static files (SPA)
+	var webFS fs.FS
+	if info, err := os.Stat("web/build"); err == nil && info.IsDir() {
+		webFS = os.DirFS("web/build")
+		log.Println("serving SPA from web/build")
+	}
+
 	// HTTP server
 	router := api.NewRouter(
 		deviceHandler,
@@ -108,6 +116,7 @@ func run() error {
 		statsHandler,
 		cfg.Auth.APIKey,
 		cfg.Auth.JWTSecret,
+		webFS,
 	)
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
