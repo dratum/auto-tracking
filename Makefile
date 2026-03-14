@@ -1,4 +1,4 @@
-.PHONY: up down run build logs ps
+.PHONY: up down run build logs ps web-dev web-build web-install help
 
 COMPOSE_FILE := deployments/docker-compose.yml
 
@@ -24,5 +24,16 @@ run:               ## Запустить сервер локально
 build:             ## Собрать бинарник
 	go build -o bin/server ./cmd/server
 
+## Frontend
+
+web-install:       ## Установить зависимости фронтенда
+	cd web && npm install
+
+web-dev:           ## Запустить фронтенд dev-сервер
+	cd web && npm run dev
+
+web-build:         ## Собрать фронтенд для продакшена
+	cd web && npm run build
+
 help:              ## Показать справку
-	@grep -E '^[a-z]+:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
+	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
